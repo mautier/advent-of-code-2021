@@ -56,6 +56,20 @@ where
     }
 }
 
+pub fn line_iter_from_file(path: &std::path::Path) -> impl Iterator<Item=String> {
+    let file = std::io::BufReader::new(std::fs::File::open(path).expect("Failed to open file"));
+    use std::io::BufRead;
+
+    file.lines().filter_map(|l| {
+        let l = l.expect("Failed to read line");
+        if l.is_empty() {
+            None
+        } else {
+            Some(l)
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

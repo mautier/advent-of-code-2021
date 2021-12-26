@@ -15,17 +15,7 @@ fn main() {
         p.push("2021-12-02.txt");
         p
     };
-    let file =
-        std::io::BufReader::new(std::fs::File::open(input_path).expect("Failed to open input."));
-    use std::io::BufRead;
-    let lines = file.lines().filter_map(|l| {
-        let l = l.expect("Failed to read line");
-        if l.is_empty() {
-            None
-        } else {
-            Some(l)
-        }
-    });
+    let lines = advent_of_code::iter::line_iter_from_file(&input_path);
 
     const FORWARD: &str = "forward ";
     const DOWN: &str = "down ";
