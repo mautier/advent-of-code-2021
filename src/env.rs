@@ -6,3 +6,9 @@ pub fn get_data_dir() -> std::path::PathBuf {
         Err(err) => panic!("Failed to read env var {}: {:?}", ENV_DATA_DIR, err),
     }
 }
+
+pub fn get_puzzle_input_path(filename: &str) -> std::path::PathBuf {
+    let mut path = get_data_dir();
+    path.push(filename);
+    path
+}
