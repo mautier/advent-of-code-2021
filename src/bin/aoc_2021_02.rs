@@ -1,3 +1,5 @@
+/// Parses the integer at the end of the string, after a prefix, eg "forward 123".
+/// Returns None if the prefix is missing.
 fn strip_prefix_and_parse_int(txt: &str, prefix: &str) -> Option<i32> {
     if !txt.starts_with(prefix) {
         return None;

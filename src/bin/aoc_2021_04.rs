@@ -1,8 +1,12 @@
 struct Bingo {
+    /// The sequence of numbers that will be selected, with duplicates removed (just in case,
+    /// unclear if actually needed).
     deduped_numbers: Vec<u8>,
+    /// The bingo boards.
     boards: Vec<Board>,
 }
 
+/// A single cell on a board. Initially, all cells are Unmarked.
 #[derive(Clone, Copy, Debug)]
 enum BoardCell {
     Unmarked(u8),
@@ -12,10 +16,14 @@ enum BoardCell {
 struct Board {
     /// Row-major matrix of numbers.
     matrix: [[BoardCell; 5]; 5],
+    /// For each row, the total number of `Marked` cells. Used for quickly checking for fully
+    /// marked rows.
     num_marked_per_row: [u8; 5],
+    /// Similar to `num_marked_per_row`, but for columns.
     num_marked_per_col: [u8; 5],
 }
 
+/// Outcome of marking a number on a bingo board.
 enum MarkOutcome {
     /// Nothing special happened.
     None,
@@ -58,6 +66,7 @@ impl Board {
     }
 }
 
+/// Parses the input lines, **assuming the empty lines have been removed**.
 fn parse_puzzle_input(mut lines: impl Iterator<Item = String>) -> Bingo {
     // First line is the drawn numbers, comma-separated.
     let mut numbers: Vec<u8> = lines
@@ -73,10 +82,9 @@ fn parse_puzzle_input(mut lines: impl Iterator<Item = String>) -> Bingo {
         numbers
     };
 
-    // Now parse the boards: one empty line, followed by 5 lines of numbers.
+    // Now parse the boards: 5 lines of numbers per board.
     let mut boards = Vec::new();
     'board_loop: loop {
-        // Read the 5 lines of numbers.
         let mut matrix = [[BoardCell::Marked; 5]; 5];
         for matrix_row in &mut matrix {
             let row = if let Some(r) = lines.next() {

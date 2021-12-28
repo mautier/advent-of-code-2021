@@ -1,6 +1,15 @@
+/// An iterator over overlapping windows.
+///
+/// Similar to `std::slice::windows`, but as an adapter for any iterator, and using a compile-time
+/// constant as window size.
 pub struct WindowIterator<It: Iterator, const WIN_SIZE: usize> {
+    /// The source iterator.
     iter: It,
+    /// The current window of items. If None, then we've reached the first None of `iter`, ie there
+    /// are no more complete windows.
+    /// Used as a rolling buffer; the first item is at index `next_idx_to_replace`.
     window: Option<[It::Item; WIN_SIZE]>,
+    /// The next item we read from `iter` will go at this index in `window`.
     next_idx_to_replace: usize,
 }
 
@@ -36,6 +45,7 @@ where
         let (to_return, mut win) = match self.window.take() {
             None => return None,
             Some(win) => {
+                // Build the array to return to the caller.
                 let mut res = Vec::with_capacity(WIN_SIZE);
                 for i in 0..WIN_SIZE {
                     res.push(win[(self.next_idx_to_replace + i) % WIN_SIZE].clone());
@@ -56,6 +66,7 @@ where
     }
 }
 
+/// Returns an iterator over the lines from a file, discarding empty lines.
 pub fn line_iter_from_file(path: &std::path::Path) -> impl Iterator<Item=String> {
     let file = std::io::BufReader::new(std::fs::File::open(path).expect("Failed to open file"));
     use std::io::BufRead;

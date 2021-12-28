@@ -1,23 +1,24 @@
-/// A wire pattern is a set of active (on) wires, as a bitset.
+/// A wire pattern is a set of active (on) wires, as a bitset with 7 bits (1 per wire).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct WirePattern(u8);
 
 impl WirePattern {
-    fn as_u8(&self) -> u8 {
-        self.0
-    }
-    fn from_u8(pat: u8) -> Self {
-        Self(pat)
-    }
     fn num_on(&self) -> usize {
         self.0.count_ones() as usize
     }
     fn intersect(&self, other: &Self) -> Self {
-        Self::from_u8(self.as_u8() & other.as_u8())
+        Self(self.0 & other.0)
     }
     fn symmetric_diff(&self, other: &Self) -> Self {
-        Self::from_u8(self.as_u8() ^ other.as_u8())
+        Self(self.0 ^ other.0)
     }
+}
+
+/// A single line from the input: 10 unique wire patterns (1 per digit), and 4 patterns that we
+/// actually want to decode.
+struct NoteEntry {
+    unique_patterns: [WirePattern; 10],
+    output_digits: [WirePattern; 4],
 }
 
 /// An array of {index i => wire pattern for digit i}
@@ -37,6 +38,8 @@ impl DecodedWirePatterns {
 }
 
 fn decode_wire_to_segment_mapping(unique_patterns: &[WirePattern; 10]) -> DecodedWirePatterns {
+    // Helper for looking for a single pattern matching a predicate.
+    // Panics when the predicate actually matches 0 or 2+ patterns.
     let find_one_pattern = |pred: &dyn Fn(&WirePattern) -> bool| -> WirePattern {
         let mut it = unique_patterns.iter().copied().filter(pred);
         let result = it.next().unwrap();
@@ -50,7 +53,8 @@ fn decode_wire_to_segment_mapping(unique_patterns: &[WirePattern; 10]) -> Decode
     let digit_7 = find_one_pattern(&|pat: &WirePattern| pat.num_on() == 3);
     let digit_8 = find_one_pattern(&|pat: &WirePattern| pat.num_on() == 7);
 
-    // Digits 0, 6, 9 have 6 wires. Intersecting digit 1 and 6 leaves only segment f on.
+    // Digits 0, 6, 9 have 6 wires. Among them however, only 6 has an intersection with digit 1 of
+    // size 1 wire.
     let digit_6 =
         find_one_pattern(&|pat| pat.num_on() == 6 && digit_1.intersect(pat).num_on() == 1);
     // Digit 5 is the only digit with 5 wires (among 2,3,5) that has 1 wire of difference with 6.
@@ -79,11 +83,6 @@ fn decode_wire_to_segment_mapping(unique_patterns: &[WirePattern; 10]) -> Decode
             digit_9,
         ],
     }
-}
-
-struct NoteEntry {
-    unique_patterns: [WirePattern; 10],
-    output_digits: [WirePattern; 4],
 }
 
 fn parse_note_entry(line: &str) -> NoteEntry {

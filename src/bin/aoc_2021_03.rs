@@ -1,3 +1,5 @@
+/// Counts the number of b'0' and b'1' at index `bit_index` in each line, and returns the most
+/// frequent one.
 fn compute_most_frequent_bit(lines: &[String], bit_index: usize) -> u32 {
     let mut num_ones = 0usize;
     for l in lines.iter() {
@@ -14,6 +16,7 @@ fn compute_most_frequent_bit(lines: &[String], bit_index: usize) -> u32 {
     }
 }
 
+/// Discards lines where the char at index `bit_index` is not the string version of `bit_value`.
 fn retain_with_bit(mut lines: Vec<String>, bit_index: usize, bit_value: u32) -> Vec<String> {
     let byte_value = if bit_value == 1 { b'1' } else { b'0' };
 

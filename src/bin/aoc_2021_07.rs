@@ -11,7 +11,7 @@ fn main() {
     // Part 1:
     // We're trying to find `target` that minimizes:
     //      cost(target) = Sum_pos { |pos - target| }
-    // Equivantly, we're trying to minimize the arithmetic mean of absolute deviations.
+    // Equivalently, we're trying to minimize the arithmetic mean of absolute deviations.
     // That is simply the median.
 
     assert!(!positions.is_empty());
@@ -20,6 +20,8 @@ fn main() {
         let (_, median_left, right) = positions.select_nth_unstable(median_left_idx);
         let median_right = right.iter().copied().min().unwrap();
         let sum = *median_left + median_right;
+        // The median in this case is in-between 2 input values; since an integer is expected, make
+        // sure that the result is actually one.
         assert!(sum % 2 == 0);
         sum / 2
     } else {
