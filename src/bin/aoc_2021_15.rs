@@ -1,15 +1,37 @@
+use advent_of_code::colormap::{LinearColorScale, Rgb};
+
 fn main() {
+    let mut logdir = None;
+    for arg in std::env::args() {
+        if let Some(path) = arg.strip_prefix("--log-images-to=") {
+            use std::str::FromStr;
+            logdir = Some(std::path::PathBuf::from_str(path).unwrap());
+            println!("Will log progress images to dir: {:?}", logdir.as_ref().unwrap());
+        }
+    }
+
     for test_file in ["2021-12-15.sample.txt", "2021-12-15.txt"] {
         println!("--------------- {} ---------------", test_file);
         let input_path = advent_of_code::env::get_puzzle_input_path(test_file);
         let image = parse_input_image(advent_of_code::iter::line_iter_from_file(&input_path));
 
-        let optimal_path_cost = find_optimal_path(&image);
+        let optimal_path_cost = find_optimal_path(&image, None);
         println!("Part 1: optimal path cost: {}", optimal_path_cost);
 
         let tiled_image = expand_tile_into_full_image(&image);
-        let optimal_path_cost = find_optimal_path(&tiled_image);
+        let mut log = logdir
+            .as_ref()
+            .map(|_| ExplorationLog::new(tiled_image.height, tiled_image.width));
+        let optimal_path_cost = find_optimal_path(&tiled_image, log.as_mut());
         println!("Part 2: optimal path cost: {}", optimal_path_cost);
+
+        if let Some(log) = log {
+            generate_viz_images(
+                &log,
+                logdir.as_ref().unwrap(),
+                test_file.strip_suffix(".txt").unwrap(),
+            );
+        }
     }
 }
 
@@ -32,7 +54,9 @@ impl<T> Image<T> {
 /// Search for a minimal cost path between the top-left corner and the bottom right corner.
 ///
 /// Uses an implementation of A* (https://en.wikipedia.org/wiki/A*_search_algorithm).
-fn find_optimal_path(image: &Image<u8>) -> usize {
+///
+/// Optionally records the order in which pixels are visited (as well as their cost) to a log.
+fn find_optimal_path(image: &Image<u8>, mut log: Option<&mut ExplorationLog>) -> usize {
     // A heuristic that estimates the distance to the bottom right.
     // For A* to find the optimal path first, this heuristic must never over-estimate the
     // distance (it must be an admissible heuristic).
@@ -71,6 +95,10 @@ fn find_optimal_path(image: &Image<u8>) -> usize {
 
     while let Some(cand) = to_visit.pop() {
         let cand = cand.0; // Peel the Reverse.
+
+        if let Some(log) = &mut log {
+            log.explore(cand.row, cand.col, cand.cost_so_far);
+        }
 
         if cand.row == image.height - 1 && cand.col == image.width - 1 {
             return cand.cost_so_far;
@@ -179,4 +207,87 @@ fn expand_tile_into_full_image(tile: &Image<u8>) -> Image<u8> {
     }
 
     img
+}
+
+struct ExplorationLog {
+    image_height: u16,
+    image_width: u16,
+    /// The visited pixels, as (row, col, cost) tuples.
+    visits: Vec<(u16, u16, usize)>,
+}
+
+impl ExplorationLog {
+    fn new(image_height: u16, image_width: u16) -> Self {
+        Self {
+            image_height,
+            image_width,
+            visits: Vec::new(),
+        }
+    }
+
+    fn explore(&mut self, row: u16, col: u16, cost: usize) {
+        self.visits.push((row, col, cost));
+    }
+}
+
+fn generate_viz_images(log: &ExplorationLog, dir: &std::path::Path, name_prefix: &str) {
+    let get_path = |step: usize| -> std::path::PathBuf {
+        let mut path = std::path::PathBuf::new();
+        path.push(dir);
+        path.push(format!("{}.step_{:05}.ppm", name_prefix, step));
+        path
+    };
+
+    let min_cost = 0;
+    let max_cost = *log.visits.iter().map(|(_row, _col, cost)| cost).max().unwrap();
+    let cs = LinearColorScale { min: min_cost as f32, max: max_cost as f32 };
+
+    // The output image that we'll progressively modify.
+    // Starts out as all black.
+    let mut img = Image {
+        height: log.image_height,
+        width: log.image_width,
+        data: vec![Rgb::new(0, 0, 0); log.image_height as usize * log.image_width as usize],
+    };
+
+    // There are (likely) way too many steps to save an image for each.
+    // Instead, we'll aim for a N second clip at M fps.
+    let target_len_s = 20.0;
+    let fps = 30.0;
+    let target_len_frames = target_len_s * fps;
+    // We'll save a frame every x:
+    let save_step = usize::max(1, log.visits.len() / (target_len_frames as usize));
+
+    let mut num_saved_images = 0;
+    for (step, (row, col, cost)) in log.visits.iter().enumerate() {
+        *img.pixel_mut(*row, *col) = cs.map(*cost as f32);
+
+        if step % save_step == 0 || step + 1 == log.visits.len() {
+            let path = get_path(num_saved_images);
+            save_image_as_ppm(&img, &path).expect("Failed to save image");
+            num_saved_images += 1;
+        }
+    }
+    println!("Saved {} images!", num_saved_images);
+}
+
+/// Saves an RGB image as a Portable PixMap (PPM). See https://en.wikipedia.org/wiki/Netpbm for
+/// details.
+fn save_image_as_ppm(img: &Image<Rgb>, path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(path)?);
+
+    // Magic number for a binary PPM.
+    writer.write_all(b"P6\n")?;
+    // Width, then height, as ASCII.
+    writeln!(&mut writer, "{} {}", img.width, img.height)?;
+    // The maximum value for each color.
+    writeln!(&mut writer, "255")?;
+    // Now the binary pixel data.
+    for px in &img.data {
+        writer.write_all(&[px.r(), px.g(), px.b()])?;
+    }
+    writer.flush()?;
+
+    Ok(())
 }
