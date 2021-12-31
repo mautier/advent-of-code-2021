@@ -26,8 +26,10 @@ pub fn save_image_as_ppm(img: &Image<Rgb>, path: &std::path::Path) -> std::io::R
 /// Reads a grayscale ([0, 255]) image in Portable GrayMap ASCII format (PGM P2).
 pub fn read_pgm_image(path: &std::path::Path) -> std::io::Result<Image<u8>> {
     let contents = std::fs::read_to_string(path)?;
-    let mut contents = contents.as_str();
+    Ok(parse_pgm_image(contents.as_str()))
+}
 
+pub fn parse_pgm_image(mut contents: &str) -> Image<u8> {
     contents = contents
         .strip_prefix("P2")
         .expect("Missing P2 magic header prefix.");
@@ -103,9 +105,37 @@ pub fn read_pgm_image(path: &std::path::Path) -> std::io::Result<Image<u8>> {
         );
     }
 
-    Ok(Image {
+    Image {
         height,
         width,
         data,
-    })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_parse_pgm_image() {
+        // A sample 2x3 image made with Gimp.
+        let sample_image = r"P2
+# Created by GIMP version 2.10.18 PNM plug-in
+3 2
+255
+0
+30
+60
+255
+200
+120
+";
+        let img = super::parse_pgm_image(&sample_image);
+        #[rustfmt::skip]
+        let expected_img = crate::netpbm::Image {
+            height: 2,
+            width: 3,
+            data: vec![  0,  30,  60,
+                       255, 200, 120],
+        };
+        assert_eq!(img, expected_img);
+    }
 }

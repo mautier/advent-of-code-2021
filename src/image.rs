@@ -1,4 +1,5 @@
 /// A simple 2D image.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Image<T> {
     pub height: u16,
     pub width: u16,
