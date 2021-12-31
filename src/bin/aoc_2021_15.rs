@@ -1,4 +1,5 @@
 use advent_of_code::colormap::{LinearColorScale, Rgb};
+use advent_of_code::image::Image;
 
 fn main() {
     let mut logdir = None;
@@ -38,28 +39,12 @@ fn main() {
     }
 }
 
-struct Image<T> {
-    height: u16,
-    width: u16,
-    /// Linear buffer of pixels, in row-major order.
-    data: Vec<T>,
-}
-
-impl<T> Image<T> {
-    fn pixel(&self, row: u16, col: u16) -> &T {
-        &self.data[row as usize * self.width as usize + col as usize]
-    }
-    fn pixel_mut(&mut self, row: u16, col: u16) -> &mut T {
-        &mut self.data[row as usize * self.width as usize + col as usize]
-    }
-}
-
 /// Search for a minimal cost path between the top-left corner and the bottom right corner.
 ///
 /// Uses an implementation of A* (https://en.wikipedia.org/wiki/A*_search_algorithm).
 ///
 /// Optionally records the order in which pixels are visited (as well as their cost) to a log.
-fn find_optimal_path(image: &Image<u8>, mut log: Option<&mut ExplorationLog>) -> usize {
+fn find_optimal_path(image: &Image<usize>, mut log: Option<&mut ExplorationLog>) -> usize {
     // A heuristic that estimates the distance to the bottom right.
     // For A* to find the optimal path first, this heuristic must never over-estimate the
     // distance (it must be an admissible heuristic).
@@ -169,7 +154,7 @@ impl std::cmp::PartialEq for VisitCandidate {
     }
 }
 
-fn parse_input_image(lines: impl Iterator<Item = String>) -> Image<u8> {
+fn parse_input_image(lines: impl Iterator<Item = String>) -> Image<usize> {
     let mut height = 0;
     let mut width = 0;
     let mut data = Vec::new();
@@ -181,7 +166,7 @@ fn parse_input_image(lines: impl Iterator<Item = String>) -> Image<u8> {
         }
         assert_eq!(width, line.as_bytes().len() as u16);
 
-        data.extend(line.chars().map(|c| (c as u32 - '0' as u32) as u8));
+        data.extend(line.chars().map(|c| (c as u32 - '0' as u32) as usize));
     }
 
     Image {
@@ -191,11 +176,11 @@ fn parse_input_image(lines: impl Iterator<Item = String>) -> Image<u8> {
     }
 }
 
-fn expand_tile_into_full_image(tile: &Image<u8>) -> Image<u8> {
+fn expand_tile_into_full_image(tile: &Image<usize>) -> Image<usize> {
     let mut img = Image {
         height: tile.height * 5,
         width: tile.width * 5,
-        data: vec![0u8; tile.height as usize * 5 * tile.width as usize * 5],
+        data: vec![0usize; tile.height as usize * 5 * tile.width as usize * 5],
     };
 
     for row_in_img in 0..img.height {
@@ -205,7 +190,7 @@ fn expand_tile_into_full_image(tile: &Image<u8>) -> Image<u8> {
 
             let tile_index_rows = row_in_img / tile.height;
             let tile_index_cols = col_in_img / tile.width;
-            let extra_risk = (tile_index_rows + tile_index_cols) as u8;
+            let extra_risk = (tile_index_rows + tile_index_cols) as usize;
 
             // This is a little more awkward than just "%10" because there is no risk level 0.
             // So we remap the risk to [0,8], compute the extra risk %9, and then remap back to
@@ -281,30 +266,9 @@ fn generate_viz_images(log: &ExplorationLog, dir: &std::path::Path, name_prefix:
 
         if step % save_step == 0 || step + 1 == log.visits.len() {
             let path = get_path(num_saved_images);
-            save_image_as_ppm(&img, &path).expect("Failed to save image");
+            advent_of_code::netpbm::save_image_as_ppm(&img, &path).expect("Failed to save image");
             num_saved_images += 1;
         }
     }
     println!("Saved {} images!", num_saved_images);
-}
-
-/// Saves an RGB image as a Portable PixMap (PPM). See https://en.wikipedia.org/wiki/Netpbm for
-/// details.
-fn save_image_as_ppm(img: &Image<Rgb>, path: &std::path::Path) -> std::io::Result<()> {
-    use std::io::Write;
-    let mut writer = std::io::BufWriter::new(std::fs::File::create(path)?);
-
-    // Magic number for a binary PPM.
-    writer.write_all(b"P6\n")?;
-    // Width, then height, as ASCII.
-    writeln!(&mut writer, "{} {}", img.width, img.height)?;
-    // The maximum value for each color.
-    writeln!(&mut writer, "255")?;
-    // Now the binary pixel data.
-    for px in &img.data {
-        writer.write_all(&[px.r(), px.g(), px.b()])?;
-    }
-    writer.flush()?;
-
-    Ok(())
 }
