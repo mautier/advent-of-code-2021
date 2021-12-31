@@ -6,7 +6,10 @@ fn main() {
         if let Some(path) = arg.strip_prefix("--log-images-to=") {
             use std::str::FromStr;
             logdir = Some(std::path::PathBuf::from_str(path).unwrap());
-            println!("Will log progress images to dir: {:?}", logdir.as_ref().unwrap());
+            println!(
+                "Will log progress images to dir: {:?}",
+                logdir.as_ref().unwrap()
+            );
         }
     }
 
@@ -95,6 +98,12 @@ fn find_optimal_path(image: &Image<u8>, mut log: Option<&mut ExplorationLog>) ->
 
     while let Some(cand) = to_visit.pop() {
         let cand = cand.0; // Peel the Reverse.
+
+        // Our distance heuristic is 'consistent', so the first time we visit a pixel is the
+        // optimal cost already.
+        if *visited.pixel(cand.row, cand.col) {
+            continue;
+        }
 
         if let Some(log) = &mut log {
             log.explore(cand.row, cand.col, cand.cost_so_far);
@@ -239,8 +248,16 @@ fn generate_viz_images(log: &ExplorationLog, dir: &std::path::Path, name_prefix:
     };
 
     let min_cost = 0;
-    let max_cost = *log.visits.iter().map(|(_row, _col, cost)| cost).max().unwrap();
-    let cs = LinearColorScale { min: min_cost as f32, max: max_cost as f32 };
+    let max_cost = *log
+        .visits
+        .iter()
+        .map(|(_row, _col, cost)| cost)
+        .max()
+        .unwrap();
+    let cs = LinearColorScale {
+        min: min_cost as f32,
+        max: max_cost as f32,
+    };
 
     // The output image that we'll progressively modify.
     // Starts out as all black.
