@@ -1,3 +1,4 @@
+pub mod bits;
 pub mod colormap;
 pub mod env;
 pub mod image;
