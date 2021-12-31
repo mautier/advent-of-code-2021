@@ -3,6 +3,7 @@ use advent_of_code::image::Image;
 
 fn main() {
     let mut logdir = None;
+    let mut mask = None;
     for arg in std::env::args() {
         if let Some(path) = arg.strip_prefix("--log-images-to=") {
             use std::str::FromStr;
@@ -11,31 +12,53 @@ fn main() {
                 "Will log progress images to dir: {:?}",
                 logdir.as_ref().unwrap()
             );
+        } else if let Some(path) = arg.strip_prefix("--apply-obstacle-mask=") {
+            let mut p = std::path::PathBuf::new();
+            p.push(path);
+            mask = Some(
+                advent_of_code::netpbm::read_pgm_image(&p)
+                    .expect("Failed to read PGM-format mask."),
+            );
+            println!("Loaded obstacle mask from {:?}", path);
         }
     }
 
-    for test_file in ["2021-12-15.sample.txt", "2021-12-15.txt"] {
-        println!("--------------- {} ---------------", test_file);
-        let input_path = advent_of_code::env::get_puzzle_input_path(test_file);
-        let image = parse_input_image(advent_of_code::iter::line_iter_from_file(&input_path));
+    let test_file = "2021-12-15.txt";
+    let input_path = advent_of_code::env::get_puzzle_input_path(test_file);
+    let image = parse_input_image(advent_of_code::iter::line_iter_from_file(&input_path));
 
-        let optimal_path_cost = find_optimal_path(&image, None);
-        println!("Part 1: optimal path cost: {}", optimal_path_cost);
+    let optimal_path_cost = find_optimal_path(&image, None);
+    println!("Part 1: optimal path cost: {}", optimal_path_cost);
 
-        let tiled_image = expand_tile_into_full_image(&image);
-        let mut log = logdir
-            .as_ref()
-            .map(|_| ExplorationLog::new(tiled_image.height, tiled_image.width));
-        let optimal_path_cost = find_optimal_path(&tiled_image, log.as_mut());
-        println!("Part 2: optimal path cost: {}", optimal_path_cost);
+    let mut tiled_image = expand_tile_into_full_image(&image);
 
-        if let Some(log) = log {
-            generate_viz_images(
-                &log,
-                logdir.as_ref().unwrap(),
-                test_file.strip_suffix(".txt").unwrap(),
-            );
+    if let Some(mask) = mask {
+        assert_eq!(mask.height, tiled_image.height);
+        assert_eq!(mask.width, tiled_image.width);
+        assert_eq!(mask.data.len(), tiled_image.data.len());
+        let very_high_cost = mask.height as usize * mask.width as usize * 10;
+
+        // Use an infinity-like cost for non-zero pixels from the mask.
+        for (m, p) in mask.data.iter().copied().zip(tiled_image.data.iter_mut()) {
+            if m >= 1 {
+                *p = very_high_cost;
+            }
         }
+    }
+
+    let mut log = logdir
+        .as_ref()
+        .map(|_| ExplorationLog::new(tiled_image.height, tiled_image.width));
+
+    let optimal_path_cost = find_optimal_path(&tiled_image, log.as_mut());
+    println!("Part 2: optimal path cost: {}", optimal_path_cost);
+
+    if let Some(log) = log {
+        generate_viz_images(
+            &log,
+            logdir.as_ref().unwrap(),
+            test_file.strip_suffix(".txt").unwrap(),
+        );
     }
 }
 
