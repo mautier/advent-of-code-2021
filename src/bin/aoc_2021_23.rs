@@ -277,6 +277,7 @@ fn find_minimum_energy_shuffling(burrow: &Burrow) -> Option<(Cost, Vec<Burrow>)>
                 bin_repr = prev.binary_repr();
             }
             burrows.reverse();
+            println!("Visited {} states.", visited.len());
             return Some((state.cost_so_far, burrows));
         }
 
